@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+
+# Generated data
+data/processed/*
+
+# Test cache
+.pytest_cache/
+
+# Environment variables
+.env
