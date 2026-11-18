@@ -1,8 +1,14 @@
 
+
 import unittest
 
 from src.alignment.cpu_baseline import find_matches_with_mismatches
-from src.scheduler.gpu_distributed import gpu_distributed_alignment
+
+from src.scheduler.gpu_distributed import (
+    gpu_distributed_alignment,
+    get_device_guide,
+    _GPU_GUIDE_CACHE
+)
 
 
 class TestGPUDistributedAlignment(unittest.TestCase):
@@ -68,6 +74,22 @@ class TestGPUDistributedAlignment(unittest.TestCase):
                 "ATGC", "ATGC", num_workers=0
             )
 
+    def test_gpu_guide_cache_reuses_device_array(self):
+        guide = "ATGC"
+
+        _GPU_GUIDE_CACHE.pop(guide, None)
+
+        try:
+            first_guide = get_device_guide(guide)
+            second_guide = get_device_guide(guide)
+
+            self.assertIs(first_guide, second_guide)
+            self.assertIn(guide, _GPU_GUIDE_CACHE)
+
+        finally:
+            _GPU_GUIDE_CACHE.pop(guide, None)
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -113,6 +113,69 @@ def gpu_alignment(guide_sequence, genomic_sequence,
     return matches
 
 
+def gpu_alignment_with_device_guide(
+    d_guide,
+    guide_sequence,
+    genomic_sequence,
+    max_mismatches=2
+):
+    """Align a genome chunk using an already-transferred GPU guide."""
+
+    if not guide_sequence:
+        raise ValueError("Guide sequence cannot be empty")
+
+    if max_mismatches < 0:
+        raise ValueError("Maximum mismatches cannot be negative")
+
+    genome = encode_sequence(genomic_sequence)
+
+    if len(guide_sequence) > len(genome):
+        return []
+
+    total_windows = len(genome) - len(guide_sequence) + 1
+
+    d_genome = cuda.to_device(genome)
+
+    d_mismatch_counts = cuda.device_array(
+        total_windows,
+        dtype=np.int32
+    )
+
+    threads_per_block = 128
+
+    blocks_per_grid = (
+        total_windows + threads_per_block - 1
+    ) // threads_per_block
+
+    alignment_kernel[
+        blocks_per_grid,
+        threads_per_block
+    ](
+        d_guide,
+        d_genome,
+        d_mismatch_counts
+    )
+
+    mismatch_counts = d_mismatch_counts.copy_to_host()
+
+    matches = []
+
+    for position, count in enumerate(mismatch_counts):
+
+        if count <= max_mismatches:
+
+            window = genomic_sequence[
+                position:position + len(guide_sequence)
+            ]
+
+            matches.append({
+                "position": position,
+                "sequence": window,
+                "mismatches": int(count)
+            })
+
+    return matches
+
 if __name__ == "__main__":
 
     guide = "ATGC"

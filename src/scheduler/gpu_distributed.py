@@ -1,10 +1,30 @@
 
-
 from dask import delayed
-from distributed import Client, LocalCluster
+from distributed import Client, LocalCluster, get_worker
 
-from src.alignment.gpu_engine import gpu_alignment
+from numba import cuda
+
+from src.alignment.gpu_engine import (
+    encode_sequence,
+    gpu_alignment_with_device_guide
+)
 from src.scheduler.distributed import split_genome
+
+
+# Worker-local cache for GPU guide arrays.
+_GPU_GUIDE_CACHE = {}
+
+
+def get_device_guide(guide_sequence):
+    """Transfer a guide to GPU memory once per worker."""
+
+    if guide_sequence not in _GPU_GUIDE_CACHE:
+        encoded_guide = encode_sequence(guide_sequence)
+        _GPU_GUIDE_CACHE[guide_sequence] = cuda.to_device(
+            encoded_guide
+        )
+
+    return _GPU_GUIDE_CACHE[guide_sequence]
 
 
 def process_gpu_chunk(
@@ -13,9 +33,15 @@ def process_gpu_chunk(
     start_position,
     max_mismatches=2
 ):
-    """Process one genomic chunk using CUDA GPU alignment."""
+    """Process a genomic chunk using a reusable GPU guide."""
 
-    matches = gpu_alignment(
+    # This function is expected to execute inside a Dask worker.
+    get_worker()
+
+    d_guide = get_device_guide(guide_sequence)
+
+    matches = gpu_alignment_with_device_guide(
+        d_guide,
         guide_sequence,
         chunk,
         max_mismatches
@@ -34,17 +60,12 @@ def process_gpu_chunk(
 def gpu_distributed_alignment(
     guide_sequence,
     genome_sequence,
-    chunk_size=100_000,
+    chunk_size=250_000,
     max_mismatches=2,
     num_workers=1,
     client=None
 ):
-    """
-    Execute GPU alignment through Dask Distributed.
-
-    An existing Client can be supplied to reuse a cluster.
-    Otherwise, this function creates and closes its own cluster.
-    """
+    """Execute GPU alignment through Dask Distributed."""
 
     if not guide_sequence:
         raise ValueError("Guide sequence cannot be empty.")
@@ -89,11 +110,9 @@ def gpu_distributed_alignment(
 
         return combined_results
 
-    # Reuse an existing cluster when a Client is supplied.
     if client is not None:
         return execute(client)
 
-    # Otherwise, manage a cluster within this function.
     with LocalCluster(
         n_workers=num_workers,
         threads_per_worker=1,
