@@ -22,26 +22,40 @@ def parse_fasta(file_path):
             f"FASTA file not found: {file_path}"
         )
 
-    records = []
+    try:
+        records = []
 
-    for record in SeqIO.parse(str(fasta_path), "fasta"):
-        sequence = str(record.seq).upper()
+        for record in SeqIO.parse(str(fasta_path), "fasta"):
+            sequence = str(record.seq).upper()
 
-        is_valid, invalid_bases = validate_dna_sequence(sequence)
+            is_valid, invalid_bases = validate_dna_sequence(sequence)
 
-        if not is_valid:
-            raise ValueError(
-                f"Invalid DNA sequence in {record.id}: {invalid_bases}"
-            )
+            if not is_valid:
+                raise ValueError(
+                    f"Invalid DNA sequence in {record.id}: {invalid_bases}"
+                )
 
-        record_data = {
-            "record_id": record.id,
-            "description": record.description,
-            "sequence": sequence,
-            "length": len(sequence)
-        }
+            record_data = {
+                "record_id": record.id,
+                "description": record.description,
+                "sequence": sequence,
+                "length": len(sequence)
+            }
 
-        records.append(record_data)
+            records.append(record_data)
+
+        if not records:
+            raise ValueError("No FASTA records found.")
+
+        return records
+
+    except ValueError:
+        raise
+
+    except Exception as error:
+        raise ValueError(
+            f"Unable to read FASTA file: {error}"
+        ) from error
 
     if not records:
         raise ValueError("No FASTA records found.")
