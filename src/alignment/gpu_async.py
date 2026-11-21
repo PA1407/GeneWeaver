@@ -4,7 +4,7 @@ import numpy as np
 from numba import cuda
 
 from src.alignment.gpu_engine import (
-    encode_sequence,
+    encode_sequence_vectorized,
     alignment_kernel
 )
 
@@ -85,8 +85,8 @@ class GPUAsyncWorkspace:
             )
 
         # Encode input sequences.
-        guide = encode_sequence(guide_sequence)
-        genome = encode_sequence(genomic_sequence)
+        guide = encode_sequence_vectorized(guide_sequence)
+        genome = encode_sequence_vectorized(genomic_sequence)
 
         # Copy encoded sequences into reusable pinned buffers.
         np.copyto(self.pinned_guide, guide)

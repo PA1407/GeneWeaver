@@ -5,7 +5,7 @@ from distributed import Client, LocalCluster, get_worker
 from numba import cuda
 
 from src.alignment.gpu_engine import (
-    encode_sequence,
+    encode_sequence_vectorized,
     gpu_alignment_with_device_guide
 )
 from src.scheduler.distributed import split_genome
@@ -19,7 +19,7 @@ def get_device_guide(guide_sequence):
     """Transfer a guide to GPU memory once per worker."""
 
     if guide_sequence not in _GPU_GUIDE_CACHE:
-        encoded_guide = encode_sequence(guide_sequence)
+        encoded_guide = encode_sequence_vectorized(guide_sequence)
         _GPU_GUIDE_CACHE[guide_sequence] = cuda.to_device(
             encoded_guide
         )

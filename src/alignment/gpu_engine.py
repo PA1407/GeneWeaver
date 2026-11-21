@@ -30,6 +30,53 @@ def encode_sequence(sequence):
         )
 
 
+# Vectorized DNA encoding lookup table.
+# Invalid characters are represented by 255.
+
+DNA_LOOKUP = np.full(256, 255, dtype=np.uint8)
+
+for base, value in BASE_ENCODING.items():
+    DNA_LOOKUP[ord(base)] = value
+
+
+def encode_sequence_vectorized(sequence):
+    """
+    Encode DNA using NumPy vectorized lookup.
+
+    A = 0, C = 1, G = 2, T = 3
+    """
+
+    sequence = sequence.upper()
+
+    try:
+        sequence_bytes = sequence.encode("ascii")
+    except UnicodeEncodeError as error:
+        raise ValueError(
+            f"Invalid DNA base: {sequence[error.start]}"
+        ) from error
+
+    # Convert ASCII characters into NumPy integers.
+    ascii_values = np.frombuffer(
+        sequence_bytes,
+        dtype=np.uint8
+    )
+
+    # Perform vectorized lookup.
+    encoded = DNA_LOOKUP[ascii_values]
+
+    # Check for invalid DNA characters.
+    invalid_positions = np.flatnonzero(encoded == 255)
+
+    if invalid_positions.size > 0:
+        invalid_base = sequence[invalid_positions[0]]
+
+        raise ValueError(
+            f"Invalid DNA base: {invalid_base}"
+        )
+
+    return encoded.astype(np.int32)
+
+
 @cuda.jit
 def alignment_kernel(guide, genome, mismatch_counts):
     """Compare one genomic window per CUDA thread."""
@@ -58,8 +105,8 @@ def gpu_alignment(guide_sequence, genomic_sequence,
             "Maximum mismatches cannot be negative"
         )
 
-    guide = encode_sequence(guide_sequence)
-    genome = encode_sequence(genomic_sequence)
+    guide = encode_sequence_vectorized(guide_sequence)
+    genome = encode_sequence_vectorized(genomic_sequence)
 
     if len(guide) > len(genome):
         return []
@@ -127,7 +174,7 @@ def gpu_alignment_with_device_guide(
     if max_mismatches < 0:
         raise ValueError("Maximum mismatches cannot be negative")
 
-    genome = encode_sequence(genomic_sequence)
+    genome = encode_sequence_vectorized(genomic_sequence)
 
     if len(guide_sequence) > len(genome):
         return []
