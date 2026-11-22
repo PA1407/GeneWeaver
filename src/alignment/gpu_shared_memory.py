@@ -2,7 +2,10 @@
 import numpy as np
 from numba import cuda, int32
 
-from src.alignment.gpu_engine import encode_sequence
+from src.alignment.gpu_engine import (
+    encode_sequence,
+    process_alignment_results
+)
 
 
 @cuda.jit
@@ -100,20 +103,9 @@ def gpu_alignment_shared(
 
     mismatch_counts = d_mismatch_counts.copy_to_host()
 
-    matches = []
-
-    for position, count in enumerate(mismatch_counts):
-
-        if count <= max_mismatches:
-
-            window = genomic_sequence[
-                position:position + len(guide_sequence)
-            ]
-
-            matches.append({
-                "position": position,
-                "sequence": window,
-                "mismatches": int(count)
-            })
-
-    return matches
+    return process_alignment_results(
+        mismatch_counts,
+        genomic_sequence,
+        len(guide_sequence),
+        max_mismatches
+    )

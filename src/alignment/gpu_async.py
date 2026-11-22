@@ -5,7 +5,8 @@ from numba import cuda
 
 from src.alignment.gpu_engine import (
     encode_sequence_vectorized,
-    alignment_kernel
+    alignment_kernel,
+    process_alignment_results
 )
 
 
@@ -123,23 +124,12 @@ class GPUAsyncWorkspace:
         # Ensure transfers and kernel execution are complete.
         self.stream.synchronize()
 
-        matches = []
-
-        for position, count in enumerate(self.pinned_results):
-
-            if count <= max_mismatches:
-
-                window = genomic_sequence[
-                    position:position + self.guide_length
-                ]
-
-                matches.append({
-                    "position": position,
-                    "sequence": window,
-                    "mismatches": int(count)
-                })
-
-        return matches
+        return process_alignment_results(
+            self.pinned_results,
+            genomic_sequence,
+            self.guide_length,
+            max_mismatches
+        )
 
 
 

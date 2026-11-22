@@ -93,6 +93,34 @@ def alignment_kernel(guide, genome, mismatch_counts):
 
         mismatch_counts[position] = mismatches
 
+def process_alignment_results(
+    mismatch_counts,
+    genomic_sequence,
+    guide_length,
+    max_mismatches
+):
+    """
+    Convert GPU mismatch counts into alignment results.
+
+    NumPy identifies matching positions efficiently.
+    Python constructs the final result dictionaries.
+    """
+
+    matching_positions = np.flatnonzero(
+        mismatch_counts <= max_mismatches
+    )
+
+    return [
+        {
+            "position": int(position),
+            "sequence": genomic_sequence[
+                position:position + guide_length
+            ],
+            "mismatches": int(mismatch_counts[position])
+        }
+        for position in matching_positions
+    ]
+
 
 def gpu_alignment(guide_sequence, genomic_sequence,
                   max_mismatches=2):
@@ -141,23 +169,12 @@ def gpu_alignment(guide_sequence, genomic_sequence,
     # Transfer results back to CPU RAM
     mismatch_counts = d_mismatch_counts.copy_to_host()
 
-    matches = []
-
-    for position, count in enumerate(mismatch_counts):
-
-        if count <= max_mismatches:
-
-            window = genomic_sequence[
-                position:position + len(guide_sequence)
-            ]
-
-            matches.append({
-                "position": position,
-                "sequence": window,
-                "mismatches": int(count)
-            })
-
-    return matches
+    return process_alignment_results(
+        mismatch_counts,
+        genomic_sequence,
+        len(guide_sequence),
+        max_mismatches
+    )
 
 
 def gpu_alignment_with_device_guide(
@@ -205,23 +222,12 @@ def gpu_alignment_with_device_guide(
 
     mismatch_counts = d_mismatch_counts.copy_to_host()
 
-    matches = []
-
-    for position, count in enumerate(mismatch_counts):
-
-        if count <= max_mismatches:
-
-            window = genomic_sequence[
-                position:position + len(guide_sequence)
-            ]
-
-            matches.append({
-                "position": position,
-                "sequence": window,
-                "mismatches": int(count)
-            })
-
-    return matches
+    return process_alignment_results(
+        mismatch_counts,
+        genomic_sequence,
+        len(guide_sequence),
+        max_mismatches
+    )
 
 if __name__ == "__main__":
 
