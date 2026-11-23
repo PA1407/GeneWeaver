@@ -6,7 +6,7 @@ import numpy as np
 from numba import cuda
 
 from src.alignment.gpu_engine import (
-    encode_sequence,
+    encode_sequence_vectorized,
     alignment_kernel
 )
 
@@ -19,8 +19,8 @@ def profile_gpu_alignment(guide_sequence, genome_sequence):
     # 1. Measure DNA encoding.
     start = time.perf_counter()
 
-    guide = encode_sequence(guide_sequence)
-    genome = encode_sequence(genome_sequence)
+    guide = encode_sequence_vectorized(guide_sequence)
+    genome = encode_sequence_vectorized(genome_sequence)
 
     encoding_time = time.perf_counter() - start
 
